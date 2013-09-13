@@ -10,13 +10,16 @@ class GeigerCounterDataCollector:
 		self.count_index = 0
 		self.counts_per_second = 0
 		self.counts_per_minute = 0
+		self.total_counts = 0
+		self.elapsed_seconds = 0
+		self.highest_cpm = 0
 		self.next_collection_call = time.time()
 		# Well-known conversion factor from the tube manufacturer
 		self.conversion_factor = 0.0057
 
 	def start(self, input_pin):
-		GPIO.setup("P8_14", GPIO.IN)
-		GPIO.add_event_detect("P8_14", GPIO.RISING, callback=self.count)
+		GPIO.setup(input_pin, GPIO.IN)
+		GPIO.add_event_detect(input_pin, GPIO.RISING, callback=self.count)
 		self.once_per_second()
 
 	def count(self, channel):
@@ -31,6 +34,8 @@ class GeigerCounterDataCollector:
 		threading.Timer(self.next_collection_call - time.time(), self.once_per_second).start()
 
 	def collect_data(self):
+		self.elapsed_seconds += 1
+
 		# Decrement CPM with expired data from a minute ago
 		self.counts_per_minute -= self.counts[self.count_index]
 
@@ -43,13 +48,18 @@ class GeigerCounterDataCollector:
 		self.counts_per_second = self.counts[self.count_index]
 		self.counts_per_minute += self.counts[self.count_index]
 
+		self.total_counts += self.counts[self.count_index]
+		if self.counts_per_minute > self.highest_cpm:
+			self.highest_cpm = self.counts_per_minute
+
 		self.count_index += 1
 		if self.count_index > 59:
 			self.count_index = 0
 
 	def print_statistics(self):
 		micro_sieverts_per_hour = self.counts_per_minute * self.conversion_factor
-		print "CPS: {0}, CPM: {1}, μSv/hr: {2:.2f}".format(self.counts_per_second, self.counts_per_minute, micro_sieverts_per_hour)
+		average_cpm = self.total_counts * 1.0 / self.elapsed_seconds * 60
+		print "CPS: {0}, rolling CPM: {1}, avg CPM: {2:.1f}, max CPM: {3}, μSv/hr: {4:.2f}".format(self.counts_per_second, self.counts_per_minute, average_cpm, self.highest_cpm, micro_sieverts_per_hour)
 
 collector = GeigerCounterDataCollector()
-collector.start("P8_14")
+collector.start("P8_11")
