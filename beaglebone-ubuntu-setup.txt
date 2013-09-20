@@ -1,0 +1,99 @@
+# System update
+sudo ntpdate pool.ntp.org
+sudo apt-get update && apt-get upgrade
+
+# Bash autocompletion
+sudo apt-get install bash-completion
+
+# hostname
+echo "127.0.0.1       localhost
+127.0.1.1       beaglebone
+" | sudo tee /etc/hosts
+echo "beaglebone" | sudo tee /etc/hostname
+sudo reboot
+
+# zeroconf
+sudo apt-get install avahi-daemon
+sudo reboot
+
+# DTC (https://groups.google.com/forum/#!topic/beagleboard/zQ039ckqp3E)
+wget -c https://raw.github.com/RobertCNelson/tools/master/pkgs/dtc.sh 
+chmod +x dtc.sh 
+./dtc.sh 
+
+# Python BBIO
+sudo apt-get install build-essential python-dev python-setuptools python-pip python-smbus -y
+sudo easy_install -U distribute
+sudo pip install pyserial
+sudo apt-get install device-tree-compiler
+sudo pip install Adafruit_BBIO
+sudo python -c "import Adafruit_BBIO.GPIO as GPIO; print GPIO"
+
+# WIFI
+sudo apt-get install lshw wpasupplicant wireless-tools
+# More config file stuff here
+
+sudo apt-get tmux
+
+# Timezone
+sudo rm localtime
+sudo ln -s /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
+ntpdate -b -s -u pool.ntp.org
+date
+
+# Auto time sync
+sudo crontab -u elee -e
+************
+
+*/30 * * * * ntpdate -b -s -u pool.ntp.org
+
+************
+
+# Wireless
+sudo nano /etc/wpa_supplicant/wpa_supplicant.conf
+
+************
+
+ctrl_interface=/var/run/wpa_supplicant
+
+# Unsecure Network
+#network={
+#    ssid="<ssid>"
+#    key_mgmt=NONE
+#    priority=<unsecure_priority>
+#}
+
+# WEP Network
+#network={
+#    ssid="<ssid>"
+#    key_mgmt=NONE
+#    wep_key0="<key>"
+#    priority=<wep_priority>
+#}
+
+# WPA Network
+network={
+    ssid="LeeGuest"
+    psk="Become1A2Granite3Mastiff4And5Yodel6"
+    priority=1
+}
+
+*************
+
+sudo nano /etc/network/interfaces
+
+*************
+
+auto wlan0
+iface wlan0 inet dhcp
+    wpa-driver wext
+    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+*************
+
+# To write to serial LCD:
+# Set up voltage regulator as in http://learn.adafruit.com/assets/6787
+# Plug Rx line into green line of USB serial cable
+stty 9600
+echo -en '\x7C\x80' > /dev/cu.usbserial
+
