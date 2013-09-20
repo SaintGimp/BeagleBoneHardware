@@ -1,7 +1,7 @@
 BeagleBone Black and Embedded Device Scripts
 =============
 
-This is a random collection of scripts for playing around with the BeagleBone Black and other embedded devices.
+This is a random collection of scripts for playing around with the BeagleBone Black and other embedded devices.  This code is guarenteed to be sloppy and is probably of use only to me.
 
 **Prerequisites**
 
