@@ -65,6 +65,7 @@
 #include <avr/sleep.h>		// sleep mode utilities
 #include <util/delay.h>		// some convenient delay functions
 #include <stdlib.h>			// some handy functions like utoa()
+#include <string.h>
 
 // Defines
 #define VERSION			"1.00"
@@ -83,6 +84,10 @@
 void uart_putchar(char c);			// send a character to the serial port
 void uart_putstring(char *buffer);		// send a null-terminated string in SRAM to the serial port
 void uart_putstring_P(char *buffer);	// send a null-terminated string in PROGMEM to the serial port
+
+void lcd_clear();
+void lcd_line2();
+void write_padded_string(char* buffer, int output_length, char pad_char);
 
 void checkevent(void);	// flash LED and beep the piezo
 void sendreport(void);	// log data over the serial port
@@ -205,6 +210,31 @@ void uart_putstring_P(char *buffer)
 		uart_putchar(pgm_read_byte(buffer++));	// read byte from PROGMEM and send it
 }
 
+// https://www.sparkfun.com/tutorials/246
+
+void lcd_clear()
+{
+	uart_putchar(254);
+	uart_putchar(1);
+}
+
+void lcd_line2()
+{
+	uart_putchar(254);
+	uart_putchar(192);
+}
+
+void write_padded_string(char* buffer, int output_length, char pad_char)
+{
+	int i;
+	int padding_chars = output_length - strlen(buffer);
+	for (i = 0; i < padding_chars; i++)
+	{
+		uart_putchar(pad_char);
+	}
+	uart_putstring(buffer);
+}
+
 // flash LED and beep the piezo
 void checkevent(void)
 {
@@ -249,44 +279,43 @@ void sendreport(void)
 		}
 		
 		// Send CPM value to the serial port
-		uart_putstring_P(PSTR("CPS, "));
+		lcd_clear();
+
+		uart_putstring_P(PSTR("CPS:"));
 		utoa(cps, serbuf, 10);		// radix 10
-		uart_putstring(serbuf);
+		write_padded_string(serbuf, 3, ' ');
 			
-		uart_putstring_P(PSTR(", CPM, "));
+		uart_putstring_P(PSTR(" CPM:"));
 		ultoa(cpm, serbuf, 10);		// radix 10
-		uart_putstring(serbuf);
-			
-		uart_putstring_P(PSTR(", uSv/hr, "));
-	
+		write_padded_string(serbuf, 4, ' ');
+
+		// Send uSv/hr value to the serial port				
+		lcd_line2();
+		uart_putstring_P(PSTR("uSv/hr:"));
+
 		// calculate uSv/hr based on scaling factor, and multiply result by 100
 		// so we can easily separate the integer and fractional components (2 decimal places)
 		uint32_t usv_scaled = (uint32_t)(cpm*SCALE_FACTOR);	// scale and truncate the integer part
 			
 		// this reports the integer part
 		utoa((uint16_t)(usv_scaled/10000), serbuf, 10);	
-		uart_putstring(serbuf);
+		write_padded_string(serbuf, 3, ' ');
 			
 		uart_putchar('.');
 			
 		// this reports the fractional part (2 decimal places)
 		uint8_t fraction = (usv_scaled/100)%100;
-		if (fraction < 10)
-			uart_putchar('0');	// zero padding for <0.10
 		utoa(fraction, serbuf, 10);
-		uart_putstring(serbuf);
+		write_padded_string(serbuf, 2, '0');
 			
 		// Tell us what averaging method is being used
 		if (mode == 2) {
-			uart_putstring_P(PSTR(", INST"));
+			uart_putstring_P(PSTR(" IN"));
 		} else if (mode == 1) {
-			uart_putstring_P(PSTR(", FAST"));
+			uart_putstring_P(PSTR(" FA"));
 		} else {
-			uart_putstring_P(PSTR(", SLOW"));
+			uart_putstring_P(PSTR(" SL"));
 		}			
-			
-		// We're done reporting data, output a newline.
-		uart_putchar('\n');	
 	}	
 }
 
@@ -301,8 +330,8 @@ int main(void)
 	// Enable USART transmitter and receiver
 	UCSRB = (1<<RXEN) | (1<<TXEN);
 
-	uart_putstring_P(PSTR("mightyohm.com Geiger Counter " VERSION "\n"));
-	uart_putstring_P(PSTR(URL "\n"));
+	uart_putstring_P(PSTR("mightyohm.com Geiger Counter " VERSION));
+	uart_putstring_P(PSTR(URL));
 
 	// Set up AVR IO ports
 	DDRB = _BV(PB4) | _BV(PB2);  // set pins connected to LED and piezo as outputs
