@@ -1,5 +1,5 @@
 import Adafruit_BBIO.ADC as ADC
-import time
+import time, datetime
 
 sensor_pin = 'P9_40'
  
@@ -11,4 +11,5 @@ while True:
     temp_c = (millivolts - 500) / 10
     temp_f = (temp_c * 9/5) + 32
     print('mv=%d C=%d F=%d' % (millivolts, temp_c, temp_f))
+
     time.sleep(1)

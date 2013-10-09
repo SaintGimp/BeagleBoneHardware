@@ -19,7 +19,7 @@ class GeigerCounterDataCollector:
 		self.conversion_factor = 0.0057
 		self.queue = queue.Queue()
 		self.quit_event = threading.Event()
-		self.data_file = open("geiger_counter_data.txt", "w+")
+		self.data_file = open("/var/tmp/geiger_counter_data.txt", "w+")
 		
 
 	def start(self, input_pin):

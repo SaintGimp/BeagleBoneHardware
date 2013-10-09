@@ -3,7 +3,7 @@ import serial
  
 UART.setup("UART1")
  
-ser = serial.Serial(port = "/dev/tty1", baudrate=9600)
+ser = serial.Serial(port = "/dev/ttyO1", baudrate=9600)
 ser.close()
 ser.open()
 if ser.isOpen():
