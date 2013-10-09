@@ -22,5 +22,6 @@ while True:
     print data
 
     data_file.write(data + '\n')
+    data_file.flush()
 
     time.sleep(15)
