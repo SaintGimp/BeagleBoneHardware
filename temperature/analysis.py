@@ -7,7 +7,6 @@ print df.columns
 print df["temp"]
 
 
-#cpm = df.temp.resample("1T", how="mean")
-#cpm.plot(kind="line")
-df.temp.plot(kind="line")
+minutes = df.temp.resample("1T", how="mean")
+minutes.plot(kind="line")
 plt.show()
