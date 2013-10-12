@@ -7,12 +7,17 @@ static PyObject *py_read_gpio(PyObject *self, PyObject *args)
     int *file_descriptor;
     char buffer;
     int value;
+    int bytes_read;
     PyObject *py_value;
 
     if (!PyArg_ParseTuple(args, "i", &file_descriptor))
         return NULL;
 
-    pread(*file_descriptor, &buffer, sizeof(buffer), 0);
+    bytes_read = pread(*file_descriptor, &buffer, sizeof(buffer), 0);
+
+    if (bytes_read == 0)
+        PyErr_SetString(PyExc_IOError, "Could not read pin value.");
+      
     value = buffer != '0' ? 1 : 0;
     py_value = Py_BuildValue("i", value);
 

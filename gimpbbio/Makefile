@@ -1,5 +1,5 @@
 time:
-	/usr/bin/ntpdate -b -s -u pool.ntp.org
+	ntpdate -b -s -u pool.ntp.org
 
 publish: clean
 	python3 setup.py sdist upload
