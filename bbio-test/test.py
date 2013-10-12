@@ -1,6 +1,5 @@
-import bbio.gpio as gpio
+import gimpbbio.gpio as gpio
 import time
-import os
 
 output_pin = gpio.pins.p8_15
 output_pin.open_for_output()

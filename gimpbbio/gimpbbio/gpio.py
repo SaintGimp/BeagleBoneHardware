@@ -1,4 +1,5 @@
 from .pin_definitions import _pin_definitions
+from . import _gpio
 
 IN = "in"
 OUT = "out"

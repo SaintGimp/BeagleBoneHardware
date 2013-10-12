@@ -1,4 +1,4 @@
-from bbio import gpio
+from gimpbbio import gpio
 from . import fake_filesystem
 
 def test_pins_are_accessible_via_key():
