@@ -5,7 +5,7 @@ sensor_pin = 'P9_40'
  
 ADC.setup()
 
-header = "timestamp, temp" 
+header = "timestamp,temp" 
 print header
 data_file = open("/var/tmp/temperature_data.txt", "w+")
 data_file.write(header + '\n')
