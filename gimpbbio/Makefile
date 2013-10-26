@@ -8,6 +8,7 @@ clean:
 	rm -f *.pyo
 	rm -f *.egg
 	rm -f overlays/*.pyo overlays/*.pyc
+
 tests:
 	py.test
 
