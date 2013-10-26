@@ -81,14 +81,22 @@ def test_can_close(monkeypatch):
 
 def test_can_open_for_input_with_pullup(monkeypatch):
     fake_filesystem.hook(monkeypatch)
-    monkeypatch.setattr("os.listdir", lambda directory: ["/sys/devices/bone_capemgr.8"])
+    monkeypatch.setattr("os.listdir", lambda directory: ["bone_capemgr.8"])
     slots_file = fake_filesystem.get("/sys/devices/bone_capemgr.8/slots")
     slots_file.content = "some other overlay"
-    def check_command(command): assert "gimpbbio_P8_15_0x37-00A0" in command
+    def check_command(command): assert "gimpbbio_P8_15-00A0" in command
     monkeypatch.setattr("os.system", check_command)
     
     gpio.pins.p8_15.open_for_input(pull = gpio.PULLUP)
 
-    value_file = fake_filesystem.get("/lib/firmware/gimpbbio_P8_15_0x37-00A0.dts")
+    value_file = fake_filesystem.get("/lib/firmware/gimpbbio_P8_15-00A0.dts")
     assert "P8_15" in value_file.content
-    assert "gimpbbio_P8_15_0x37" in slots_file.content
+    assert slots_file.content == "gimpbbio_P8_15"
+
+def test_can_open_for_input_with_active_low(monkeypatch):
+    fake_filesystem.hook(monkeypatch)
+
+    gpio.pins.p8_15.open_for_input(active_state = gpio.ACTIVE_LOW)
+
+    direction = fake_filesystem.get("/sys/class/gpio/gpio47/active_low")
+    assert direction.content == "1"

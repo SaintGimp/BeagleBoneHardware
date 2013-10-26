@@ -6,6 +6,8 @@ import errno
 
 PULLDOWN = 0
 PULLUP = 1
+ACTIVE_LOW = 1
+ACTIVE_HIGH = 0
 
 class Pin:
     _gpio_read_function = _gpio.read
@@ -16,11 +18,14 @@ class Pin:
     def __init__(self):
         self.value_file_descriptor = None
 
-    def open_for_input(self, pull = PULLDOWN):
+    def open_for_input(self, pull = PULLDOWN, active_state = ACTIVE_HIGH):
         if pull == PULLUP:
             self._configure_device_tree_for_pullup()
 
         self._open("in")
+
+        if active_state == ACTIVE_LOW:
+            self._set_active_low("1")
 
     def open_for_output(self):
         self._open("out")
@@ -65,6 +70,9 @@ class Pin:
     def _set_direction(self, direction):
         self._write("/sys/class/gpio/gpio" + str(self.gpio) + "/direction", direction)
 
+    def _set_active_low(self, active_low):
+        self._write("/sys/class/gpio/gpio" + str(self.gpio) + "/active_low", active_low)
+
     def _read(self, filename):
         with open(filename, "r") as file:
             return file.read()
@@ -74,7 +82,7 @@ class Pin:
             file.write(text)
 
     def _find_file_by_partial_match(self, path, pattern):
-        return next(item for item in os.listdir(path) if pattern in item)
+        return path + "/" + next(item for item in os.listdir(path) if pattern in item)
     
     def _configure_device_tree_for_pullup(self):
         # We only need to apply a device tree overlay if we're setting
@@ -85,14 +93,14 @@ class Pin:
         # NOTE: once we set an overlay there's no good way to get rid of
         # it.  You'll have to reboot to go back to pulldown on the pin.
 
-        dtbo_filename = self._build_device_tree_overlay()
-        self._load_device_tree_overlay(dtbo_filename)
+        overlay_name = self._build_device_tree_overlay()
+        self._load_device_tree_overlay(overlay_name)
 
     def _build_device_tree_overlay(self):
         data = 0x37
-        base_name = "gimpbbio_" + self.key + "_" + "0x%x" % data
-        dts_filename = "/lib/firmware/" + base_name + "-00A0.dts"
-        dtbo_filename = "/lib/firmware/" + base_name + "-00A0.dtbo"
+        overlay_name = "gimpbbio_" + self.key
+        dts_filename = "/lib/firmware/" + overlay_name + "-00A0.dts"
+        dtbo_filename = "/lib/firmware/" + overlay_name + "-00A0.dtbo"
 
         dts_text = _device_tree._template
         dts_text = dts_text.replace("___PIN_KEY___", self.key)
@@ -106,19 +114,19 @@ class Pin:
         command = 'dtc -O dtb -o ' + dtbo_filename + ' -b 0 -@ ' + dts_filename;
         os.system(command);
 
-        return dtbo_filename
+        return overlay_name
 
-    def _load_device_tree_overlay(self, dtbo_filename):
+    def _load_device_tree_overlay(self, overlay_name):
         cape_manager = self._find_file_by_partial_match("/sys/devices", "bone_capemgr.")
         cape_slots_path = cape_manager + "/slots"
 
         slots = self._read(cape_slots_path)
-        if dtbo_filename not in slots:
-            self._write(cape_slots_path, dtbo_filename)
+        if overlay_name not in slots:
+            self._write(cape_slots_path, overlay_name)
 
         while True:
             slots = self._read(cape_slots_path)
-            if dtbo_filename in slots:
+            if overlay_name in slots:
                 break
 
 class PinCollection:
