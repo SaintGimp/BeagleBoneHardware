@@ -3,11 +3,19 @@ from . import _device_tree
 from . import _gpio
 import os
 import errno
+import select
+import threading
+import queue
+import time
+import datetime
 
-PULLDOWN = 0
-PULLUP = 1
+PULL_DOWN = 0
+PULL_UP = 1
 ACTIVE_LOW = 1
 ACTIVE_HIGH = 0
+RISING = "rising"
+FALLING = "falling"
+BOTH = "both"
 
 class Pin:
     _gpio_read_function = _gpio.read
@@ -18,14 +26,16 @@ class Pin:
     def __init__(self):
         self.value_file_descriptor = None
 
-    def open_for_input(self, pull = PULLDOWN, active_state = ACTIVE_HIGH):
-        if pull == PULLUP:
+    def open_for_input(self, pull = PULL_DOWN, active_state = ACTIVE_HIGH):
+        if pull == PULL_UP:
             self._configure_device_tree_for_pullup()
 
         self._open("in")
 
         if active_state == ACTIVE_LOW:
             self._set_active_low("1")
+        else:
+            self._set_active_low("0")
 
     def open_for_output(self):
         self._open("out")
@@ -48,6 +58,61 @@ class Pin:
     def close(self):
         Pin._os_close_function(self.value_file_descriptor)
         self._unexport()
+
+    # The underlying device tree is not buffered so any events that
+    # occur while we're busy processing a previous one might be lost.
+    # To prevent that, we buffer the events into a queue on the poll
+    # thread and invoke the callback from another thread. Note that
+    # specifying an edge trigger of BOTH will capture the state of the
+    # pin at some point after the trigger and it might have changed.
+    def watch(self, edge_trigger, callback):
+        self.edge_trigger = edge_trigger
+        self.event_queue = queue.Queue()
+        self._watch_initialize(edge_trigger)
+
+        watcher_thread = threading.Thread(target = self._watcher, daemon = True)
+        watcher_thread.start()
+        notifier_thread = threading.Thread(target = self._notifier, args = (callback,), daemon = True)
+        notifier_thread.start()
+    
+    # Use this if you want event notifications as fast as possible
+    def watch_unbuffered(self, edge_trigger, callback):
+        self._watch_initialize(edge_trigger)
+
+        watcher_thread = threading.Thread(target = self._unbuffered_watcher, args = (callback,), daemon = True)
+        watcher_thread.start()
+
+    def _watch_initialize(self, edge_trigger):
+        edge_filename = "/sys/class/gpio/gpio" + str(self.gpio) + "/edge"
+        self._write(edge_filename, edge_trigger)
+
+        self.epoll = select.epoll()
+        self.epoll.register(self.value_file_descriptor, select.EPOLLIN | select.EPOLLPRI | select.EPOLLET)
+        # The first poll always returns immediately so we do one as a throw-away
+        self.epoll.poll()
+        
+    def _watcher(self):
+        put_function = self.event_queue.put_nowait
+
+        while True:
+            self.epoll.poll()
+
+            if self.edge_trigger == RISING:
+                put_function((self, True))
+            elif self.edge_trigger == FALLING:
+                put_function((self, False))
+            else:
+                put_function((self, self.is_high()))
+
+    def _notifier(self, callback):
+        while True:
+            pin, is_high = self.event_queue.get()
+            callback(pin, is_high)
+
+    def _unbuffered_watcher(self, callback):
+        while True:
+            self.epoll.poll()
+            callback()
 
     def _open(self, direction):
         self._export()
@@ -146,3 +211,33 @@ class PinCollection:
         return pin
 
 pins = PinCollection()
+
+# This wraps a pin and treats it as a mechanical switch that needs
+# to be debounced. In order to do proper debouncing we need to watch
+# for both rising and falling events, but those events might not
+# accurately report the state of the pin. Instead we have to keep
+# track of whether the switch is low or high ourselves.
+class Switch:
+    def __init__(self, pin):
+        self._pin = pin
+
+    def watch(self, on_high = None, on_low = None, debounce_delta = datetime.timedelta(milliseconds = 30)):
+        self._on_high = on_high
+        self._on_low = on_low
+        self._debounce_delta = debounce_delta
+        self._last_event_time = datetime.datetime.min
+        self._is_high = self._pin.is_high()
+        
+        self._pin.watch(BOTH, self._on_change)
+
+    def _on_change(self, pin, is_high):
+        now = datetime.datetime.now()
+        if self._last_event_time + self._debounce_delta < now:
+            self._is_high = not self._is_high
+
+            if self._is_high and self._on_high:
+                self._on_high(self._pin)
+            if not self._is_high and self._on_low:
+                self._on_low(self._pin)
+
+            self._last_event_time = now
