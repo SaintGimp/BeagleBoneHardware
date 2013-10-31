@@ -1,4 +1,5 @@
 import gimpbbio.gpio as gpio
+import gimpbbio.devices as devices
 import time
 import math
 import datetime
@@ -17,7 +18,7 @@ def on_release(pin):
 
 input_pin = gpio.pins.p8_16
 input_pin.open_for_input(pull = gpio.PULL_UP, active_state = gpio.ACTIVE_LOW)
-switch = gpio.Switch(input_pin)
+switch = devices.Switch(input_pin)
 switch.watch(on_press, on_release)
 
 time.sleep(1000)
