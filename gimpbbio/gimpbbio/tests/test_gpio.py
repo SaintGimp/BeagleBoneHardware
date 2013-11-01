@@ -87,7 +87,7 @@ def test_can_open_for_input_with_pullup(monkeypatch):
     def check_command(command): assert "gimpbbio_P8_15-00A0" in command
     monkeypatch.setattr("os.system", check_command)
     
-    gpio.pins.p8_15.open_for_input(pull = gpio.PULLUP)
+    gpio.pins.p8_15.open_for_input(pull = gpio.PULL_UP)
 
     value_file = fake_filesystem.get("/lib/firmware/gimpbbio_P8_15-00A0.dts")
     assert "P8_15" in value_file.content
