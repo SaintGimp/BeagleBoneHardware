@@ -32,10 +32,10 @@ blue_switch = setup_switch(gpio.pins.p8_12)
 leds = [red_led, green_led, yellow_led, blue_led]
 leds_by_switch = {red_switch: red_led, green_switch: green_led, yellow_switch: yellow_led, blue_switch: blue_led}
 
-for x in range(20):
-	for led in leds:
-		led.set_high()
-		time.sleep(.05)
-		led.set_low()
+# for x in range(20):
+# 	for led in leds:
+# 		led.set_high()
+# 		time.sleep(.05)
+# 		led.set_low()
 
 time.sleep(1000)

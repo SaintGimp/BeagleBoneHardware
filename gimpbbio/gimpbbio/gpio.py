@@ -6,7 +6,7 @@ import errno
 import select
 import threading
 import queue
-import time
+import datetime
 
 PULL_DOWN = 0
 PULL_UP = 1
@@ -20,7 +20,8 @@ def _ensure_watcher_threads_are_running():
     global _epoll
     if _epoll is None:
         _epoll = select.epoll()
-        _watcher_thread.start()
+        _poll_thread.start()
+        _event_thread.start()
         _notifier_thread.start()
 
 def _add_watch(pin):
@@ -32,13 +33,34 @@ def _remove_watch(pin):
     del _watched_pins[pin.value_file_descriptor]
 
 # The underlying device tree is not buffered so any events that
-# occur while we're busy processing a previous one might be lost.
-# To prevent that, we buffer the events into a queue on the poll
-# thread and invoke the callback from another thread. Note that
-# specifying an edge trigger of BOTH will capture the state of the
-# pin at some point after the trigger and it might have changed.
-def _watcher():
-    put_function = _event_queue.put_nowait
+# occur while we're busy processing a previous one will be lost.
+# To prevent that, we use a two-stage buffering system. First we
+# buffer the raw interrupts into the poll queue, then on another
+# thread we turn those into proper events with pin state and
+# timestamp and buffer them again. Finally a third thread delivers
+# notifications back to the caller.
+#
+# Note that specifying an edge trigger of BOTH will capture the
+# state of the pin at some point after the trigger and it might
+# have changed. RISING and FALLING triggers will always reliably
+# report the state of the pin (since we don't have to read it)
+#
+# This system is optimized for losing the minimal amount of
+# input events while also allowing the caller to take as much
+# time as necessary to process them.  This works best for systems
+# where input is sporadic and "bursty" and the intent is to count
+# or log all events. The tradeoff is a small fixed amount of delay
+# between the interrupt and the callback being invoked, and under
+# a prolonged rapid stream of interrupts both the pin values (for
+# BOTH triggers) and the timestamps may lag behind and not reflect
+# what actually happened.
+#
+# TODO: we probably want anther watch system that's optimized
+# for minimum lag at the expense of minimal data about the event
+# and an increased risk of losing some events if the callback
+# takes too long.
+def _poller():
+    put_function = _poll_queue.put_nowait
 
     while True:
         try:
@@ -46,34 +68,44 @@ def _watcher():
                 events = _epoll.poll()
 
                 for file_descriptor, event in events:
-                    pin = _watched_pins[file_descriptor]
-                    
-                    if pin.edge_trigger == RISING:
-                        put_function((pin, True))
-                    elif pin.edge_trigger == FALLING:
-                        put_function((pin, False))
-                    else:
-                        put_function((pin, _gpio.read(file_descriptor)))
+                    put_function(file_descriptor)
         except IOError as e:
             if e.errno == errno.EINTR:
                 continue
             else:
                 raise
 
-def _notifier():
-    while True:
-        pin, is_high = _event_queue.get()
+def _eventer():
+    put_function = _event_queue.put_nowait
+    now_function = datetime.datetime.now
 
+    while True:
+        file_descriptor = _poll_queue.get()
+        pin = _watched_pins[file_descriptor]
+        
         if pin.is_new_watch:
             pin.is_new_watch = False
             continue
 
-        pin.watch_callback(pin, is_high)
+        if pin.edge_trigger == RISING:
+            put_function((pin, True, now_function()))
+        elif pin.edge_trigger == FALLING:
+            put_function((pin, False, now_function()))
+        else:
+            put_function((pin, _gpio.read(file_descriptor), now_function()))
+
+def _notifier():
+    while True:
+        pin, is_high, timestamp = _event_queue.get()
+
+        pin.watch_callback(pin, is_high, timestamp)
 
 _epoll = None
+_poll_queue = queue.Queue()
 _event_queue = queue.Queue()
 _watched_pins = {}
-_watcher_thread = threading.Thread(target = _watcher, daemon = True)
+_poll_thread = threading.Thread(target = _poller, daemon = True)
+_event_thread = threading.Thread(target = _eventer, daemon = True)
 _notifier_thread = threading.Thread(target = _notifier, daemon = True)
 
 class Pin:

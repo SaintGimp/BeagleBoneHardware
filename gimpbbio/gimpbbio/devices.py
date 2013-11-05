@@ -21,17 +21,13 @@ class Switch:
         
         self._pin.watch(gpio.BOTH, self._on_change)
 
-    def _on_change(self, pin, is_high):
-        # While we were doing the last debounce integration we probably got
-        # a bunch more pin change events queued up so we flush them if we
-        # just got done doing a debounce.
-        if self.last_debounce_time + self.ignore_queued_changes_duration > datetime.datetime.now():
+    def _on_change(self, pin, is_high, timestamp):
+        # While we were doing the last debounce integration we might have
+        # got a couple more pin change events queued up so we ignore them
+        # if they're old.
+        if timestamp < self.last_debounce_time:
             return
         
-        # We're not interested in further interrupts on this pin while we're
-        # debouncing because they're just noise.
-        pin.unwatch()
-
         new_state = self._debounced_state(3, 30)
         if new_state != self._current_state:
             self._current_state = new_state
@@ -42,8 +38,6 @@ class Switch:
                 self._on_low(self)
         
         self.last_debounce_time = datetime.datetime.now()
-
-        self._pin.watch(gpio.BOTH, self._on_change)
 
     def _debounced_state(self, poll_interval_ms, debounce_time_ms):
         maximum = debounce_time_ms / poll_interval_ms

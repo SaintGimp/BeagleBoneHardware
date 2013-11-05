@@ -4,7 +4,7 @@ import math
 
 count = 0
 
-def buffered_callback(pin, is_high):
+def buffered_callback(pin, is_high, timestamp):
 	#pin, is_high = event
 	# print("Watcher triggered, is_high = " + str(is_high))
 	# time.sleep(1)
