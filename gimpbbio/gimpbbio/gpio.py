@@ -6,7 +6,6 @@ import errno
 import select
 import threading
 import queue
-import time
 
 PULL_DOWN = 0
 PULL_UP = 1
@@ -15,6 +14,66 @@ ACTIVE_HIGH = 0
 RISING = "rising"
 FALLING = "falling"
 BOTH = "both"
+
+def _ensure_watcher_threads_are_running():
+    global _epoll
+    if _epoll is None:
+        _epoll = select.epoll()
+        _watcher_thread.start()
+        _notifier_thread.start()
+
+def _add_watch(pin):
+    _watched_pins[pin.value_file_descriptor] = pin
+    _epoll.register(pin.value_file_descriptor, select.EPOLLIN | select.EPOLLPRI | select.EPOLLET)
+
+def _remove_watch(pin):
+    _epoll.unregister(pin.value_file_descriptor)
+    del _watched_pins[pin.value_file_descriptor]
+
+# The underlying device tree is not buffered so any events that
+# occur while we're busy processing a previous one might be lost.
+# To prevent that, we buffer the events into a queue on the poll
+# thread and invoke the callback from another thread. Note that
+# specifying an edge trigger of BOTH will capture the state of the
+# pin at some point after the trigger and it might have changed.
+def _watcher():
+    put_function = _event_queue.put_nowait
+
+    while True:
+        try:
+            while True:
+                events = _epoll.poll()
+
+                for file_descriptor, event in events:
+                    pin = _watched_pins[file_descriptor]
+                    
+                    if pin.edge_trigger == RISING:
+                        put_function((pin, True))
+                    elif pin.edge_trigger == FALLING:
+                        put_function((pin, False))
+                    else:
+                        put_function((pin, pin.is_high()))
+        except IOError as e:
+            if e.errno == errno.EINTR:
+                continue
+            else:
+                raise
+
+def _notifier():
+    while True:
+        pin, is_high = _event_queue.get()
+
+        if pin.is_new_watch:
+            pin.is_new_watch = False
+            continue
+
+        pin.watch_callback(pin, is_high)
+
+_epoll = None
+_event_queue = queue.Queue()
+_watched_pins = {}
+_watcher_thread = threading.Thread(target = _watcher, daemon = True)
+_notifier_thread = threading.Thread(target = _notifier, daemon = True)
 
 class Pin:
     _gpio_read_function = _gpio.read
@@ -58,60 +117,19 @@ class Pin:
         Pin._os_close_function(self.value_file_descriptor)
         self._unexport()
 
-    # The underlying device tree is not buffered so any events that
-    # occur while we're busy processing a previous one might be lost.
-    # To prevent that, we buffer the events into a queue on the poll
-    # thread and invoke the callback from another thread. Note that
-    # specifying an edge trigger of BOTH will capture the state of the
-    # pin at some point after the trigger and it might have changed.
     def watch(self, edge_trigger, callback):
+        _ensure_watcher_threads_are_running()
+        self.watch_callback = callback
+        self.is_new_watch = True
+
         self.edge_trigger = edge_trigger
-        self.event_queue = queue.Queue()
-        self._watch_initialize(edge_trigger)
-
-        watcher_thread = threading.Thread(target = self._watcher, daemon = True)
-        watcher_thread.start()
-        notifier_thread = threading.Thread(target = self._notifier, args = (callback,), daemon = True)
-        notifier_thread.start()
-    
-    # Use this if you want event notifications as fast as possible
-    def watch_unbuffered(self, edge_trigger, callback):
-        self._watch_initialize(edge_trigger)
-
-        watcher_thread = threading.Thread(target = self._unbuffered_watcher, args = (callback,), daemon = True)
-        watcher_thread.start()
-
-    def _watch_initialize(self, edge_trigger):
         edge_filename = "/sys/class/gpio/gpio" + str(self.gpio) + "/edge"
         self._write(edge_filename, edge_trigger)
 
-        self.epoll = select.epoll()
-        self.epoll.register(self.value_file_descriptor, select.EPOLLIN | select.EPOLLPRI | select.EPOLLET)
-        # The first poll always returns immediately so we do one as a throw-away
-        self.epoll.poll()
-        
-    def _watcher(self):
-        put_function = self.event_queue.put_nowait
-
-        while True:
-            self.epoll.poll()
-
-            if self.edge_trigger == RISING:
-                put_function((self, True))
-            elif self.edge_trigger == FALLING:
-                put_function((self, False))
-            else:
-                put_function((self, self.is_high()))
-
-    def _notifier(self, callback):
-        while True:
-            pin, is_high = self.event_queue.get()
-            callback(pin, is_high)
-
-    def _unbuffered_watcher(self, callback):
-        while True:
-            self.epoll.poll()
-            callback()
+        _add_watch(self)
+    
+    def unwatch(self):
+        _remove_watch(self)
 
     def _open(self, direction):
         self._export()
