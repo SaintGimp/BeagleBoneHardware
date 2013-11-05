@@ -6,6 +6,7 @@ import errno
 import select
 import threading
 import queue
+import time
 
 PULL_DOWN = 0
 PULL_UP = 1
@@ -52,7 +53,7 @@ def _watcher():
                     elif pin.edge_trigger == FALLING:
                         put_function((pin, False))
                     else:
-                        put_function((pin, pin.is_high()))
+                        put_function((pin, _gpio.read(file_descriptor)))
         except IOError as e:
             if e.errno == errno.EINTR:
                 continue
@@ -102,10 +103,10 @@ class Pin:
     # nested function calls for performance
 
     def is_high(self):
-        return Pin._gpio_read_function(self.value_file_descriptor) == 1
+        return Pin._gpio_read_function(self.value_file_descriptor)
 
     def is_low(self):
-        return Pin._gpio_read_function(self.value_file_descriptor) == 0
+        return Pin._gpio_read_function(self.value_file_descriptor)
 
     def set_high(self):
         Pin._gpio_write_function(self.value_file_descriptor, True)

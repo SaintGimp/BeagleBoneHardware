@@ -21,7 +21,7 @@ output_pin.set_low()
 
 input_pin = gpio.pins.p8_26
 input_pin.open_for_input()
-input_pin.watch(gpio.FALLING, buffered_callback)
+input_pin.watch(gpio.BOTH, buffered_callback)
 #input_pin.watch_unbuffered(gpio.RISING, unbuffered_callback)
 time.sleep(.01)
 
