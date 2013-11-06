@@ -59,8 +59,8 @@ def _remove_watch(pin):
 # for minimum lag at the expense of minimal data about the event
 # and an increased risk of losing some events if the callback
 # takes too long.
-def _poller():
-    put_function = _poll_queue.put_nowait
+def _poll_thread_function():
+    put_function = _interrupt_queue.put_nowait
 
     while True:
         try:
@@ -75,12 +75,12 @@ def _poller():
             else:
                 raise
 
-def _eventer():
-    put_function = _event_queue.put_nowait
+def _event_thread_function():
+    put_function = _notification_queue.put_nowait
     now_function = datetime.datetime.now
 
     while True:
-        file_descriptor = _poll_queue.get()
+        file_descriptor = _interrupt_queue.get()
         pin = _watched_pins[file_descriptor]
         
         if pin.is_new_watch:
@@ -94,19 +94,19 @@ def _eventer():
         else:
             put_function((pin, _gpio.read(file_descriptor), now_function()))
 
-def _notifier():
+def _notify_thread_function():
     while True:
-        pin, is_high, timestamp = _event_queue.get()
+        pin, is_high, timestamp = _notification_queue.get()
 
         pin.watch_callback(pin, is_high, timestamp)
 
 _epoll = None
-_poll_queue = queue.Queue()
-_event_queue = queue.Queue()
+_interrupt_queue = queue.Queue()
+_notification_queue = queue.Queue()
 _watched_pins = {}
-_poll_thread = threading.Thread(target = _poller, daemon = True)
-_event_thread = threading.Thread(target = _eventer, daemon = True)
-_notifier_thread = threading.Thread(target = _notifier, daemon = True)
+_poll_thread = threading.Thread(target = _poll_thread_function, daemon = True)
+_event_thread = threading.Thread(target = _event_thread_function, daemon = True)
+_notifier_thread = threading.Thread(target = _notify_thread_function, daemon = True)
 
 class Pin:
     _gpio_read_function = _gpio.read
