@@ -5,8 +5,6 @@ import os
 import errno
 import select
 import threading
-import queue
-import datetime
 
 PULL_DOWN = 0
 PULL_UP = 1
@@ -21,8 +19,6 @@ def _ensure_watcher_threads_are_running():
     if _epoll is None:
         _epoll = select.epoll()
         _poll_thread.start()
-        _event_thread.start()
-        _notifier_thread.start()
 
 def _add_watch(pin):
     _watched_pins[pin.value_file_descriptor] = pin
@@ -32,81 +28,38 @@ def _remove_watch(pin):
     _epoll.unregister(pin.value_file_descriptor)
     del _watched_pins[pin.value_file_descriptor]
 
-# The underlying device tree is not buffered so any events that
-# occur while we're busy processing a previous one will be lost.
-# To prevent that, we use a two-stage buffering system. First we
-# buffer the raw interrupts into the poll queue, then on another
-# thread we turn those into proper events with pin state and
-# timestamp and buffer them again. Finally a third thread delivers
-# notifications back to the caller.
-#
 # Note that specifying an edge trigger of BOTH will capture the
 # state of the pin at some point after the trigger and it might
 # have changed. RISING and FALLING triggers will always reliably
 # report the state of the pin (since we don't have to read it)
-#
-# This system is optimized for losing the minimal amount of
-# input events while also allowing the caller to take as much
-# time as necessary to process them.  This works best for systems
-# where input is sporadic and "bursty" and the intent is to count
-# or log all events. The tradeoff is a small fixed amount of delay
-# between the interrupt and the callback being invoked, and under
-# a prolonged rapid stream of interrupts both the pin values (for
-# BOTH triggers) and the timestamps may lag behind and not reflect
-# what actually happened.
-#
-# TODO: we probably want anther watch system that's optimized
-# for minimum lag at the expense of minimal data about the event
-# and an increased risk of losing some events if the callback
-# takes too long.
 def _poll_thread_function():
-    put_function = _interrupt_queue.put_nowait
-
     while True:
         try:
             while True:
                 events = _epoll.poll()
 
                 for file_descriptor, event in events:
-                    put_function(file_descriptor)
+                    pin = _watched_pins[file_descriptor]
+                    
+                    if pin.is_new_watch:
+                        pin.is_new_watch = False
+                        continue
+
+                    if pin.edge_trigger == RISING:
+                        pin.watch_callback((pin, True))
+                    elif pin.edge_trigger == FALLING:
+                        pin.watch_callback((pin, False))
+                    else:
+                        pin.watch_callback((pin, _gpio.read(file_descriptor)))
         except IOError as e:
             if e.errno == errno.EINTR:
                 continue
             else:
                 raise
 
-def _event_thread_function():
-    put_function = _notification_queue.put_nowait
-    now_function = datetime.datetime.now
-
-    while True:
-        file_descriptor = _interrupt_queue.get()
-        pin = _watched_pins[file_descriptor]
-        
-        if pin.is_new_watch:
-            pin.is_new_watch = False
-            continue
-
-        if pin.edge_trigger == RISING:
-            put_function((pin, True, now_function()))
-        elif pin.edge_trigger == FALLING:
-            put_function((pin, False, now_function()))
-        else:
-            put_function((pin, _gpio.read(file_descriptor), now_function()))
-
-def _notify_thread_function():
-    while True:
-        pin, is_high, timestamp = _notification_queue.get()
-
-        pin.watch_callback(pin, is_high, timestamp)
-
-_epoll = None
-_interrupt_queue = queue.Queue()
-_notification_queue = queue.Queue()
+_epoll = None 
 _watched_pins = {}
 _poll_thread = threading.Thread(target = _poll_thread_function, daemon = True)
-_event_thread = threading.Thread(target = _event_thread_function, daemon = True)
-_notifier_thread = threading.Thread(target = _notify_thread_function, daemon = True)
 
 class Pin:
     _gpio_read_function = _gpio.read
