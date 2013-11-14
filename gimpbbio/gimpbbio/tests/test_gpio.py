@@ -7,6 +7,9 @@ def test_pins_are_accessible_via_key():
 def test_pins_are_accessible_via_attribute():
     assert gpio.pins.usr0.name == "USR0"
 
+def test_only_gpio_pins_are_accessible():
+    assert not hasattr(gpio.pins, "P9_1")
+
 def test_can_open_for_output(monkeypatch):
     fake_filesystem.hook(monkeypatch)
 

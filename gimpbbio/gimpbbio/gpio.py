@@ -1,13 +1,13 @@
 from .pin_definitions import _pin_definitions
-from . import _device_tree
 from . import _gpio
 import os
 import errno
 import select
 import threading
 
-PULL_DOWN = 0
-PULL_UP = 1
+PULL_DOWN = "pullDown"
+PULL_UP = "pullUp"
+PULL_NONE = "pullNone"
 ACTIVE_LOW = 1
 ACTIVE_HIGH = 0
 RISING = "rising"
@@ -71,9 +71,7 @@ class Pin:
         self.value_file_descriptor = None
 
     def open_for_input(self, pull = PULL_DOWN, active_state = ACTIVE_HIGH):
-        if pull == PULL_UP:
-            self._configure_device_tree_for_pullup()
-
+        self._set_pin_mux("input", pull)
         self._open("in")
 
         if active_state == ACTIVE_LOW:
@@ -82,6 +80,7 @@ class Pin:
             self._set_active_low("0")
 
     def open_for_output(self):
+        self._set_pin_mux("output", PULL_DOWN)
         self._open("out")
 
     # We have a minor bit of duplication below in the interest of reducing
@@ -152,37 +151,19 @@ class Pin:
     def _find_file_by_partial_match(self, path, pattern):
         return path + "/" + next(item for item in os.listdir(path) if pattern in item)
     
-    def _configure_device_tree_for_pullup(self):
-        # We only need to apply a device tree overlay if we're setting
-        # a pullup, otherwise the default is fine. Might want to expand
+    def _set_pin_mux(self, direction, pull):
+        # Might want to expand
         # this in the future to support more options, or to support
         # runtime config changes ala https://github.com/nomel/beaglebone.git
 
         # NOTE: once we set an overlay there's no good way to get rid of
         # it.  You'll have to reboot to go back to pulldown on the pin.
 
-        overlay_name = self._build_device_tree_overlay()
+        overlay_name = "gimp-gpio-" + self.key
         self._load_device_tree_overlay(overlay_name)
 
-    def _build_device_tree_overlay(self):
-        data = 0x37
-        overlay_name = "gimpbbio_" + self.key
-        dts_filename = "/lib/firmware/" + overlay_name + "-00A0.dts"
-        dtbo_filename = "/lib/firmware/" + overlay_name + "-00A0.dtbo"
-
-        dts_text = _device_tree._template
-        dts_text = dts_text.replace("___PIN_KEY___", self.key)
-        dts_text = dts_text.replace("___PIN_DOT_KEY___", self.key.replace("_", '.'))
-        dts_text = dts_text.replace("___PIN_FUNCTION___", self.options[data & 7])
-        dts_text = dts_text.replace("___PIN_OFFSET___", self.muxRegOffset)
-        dts_text = dts_text.replace("___DATA___", "0x%x" % data)
-
-        self._write(dts_filename, dts_text)
-
-        command = 'dtc -O dtb -o ' + dtbo_filename + ' -b 0 -@ ' + dts_filename;
-        os.system(command);
-
-        return overlay_name
+        pin_state = direction + "_" + pull
+        self._write_pin_state(pin_state)
 
     def _load_device_tree_overlay(self, overlay_name):
         cape_manager = self._find_file_by_partial_match("/sys/devices", "bone_capemgr.")
@@ -197,9 +178,14 @@ class Pin:
             if overlay_name in slots:
                 break
 
+    def _write_pin_state(self, state):
+        ocp_path = self._find_file_by_partial_match("/sys/devices", "ocp.")
+        pin_path = self._find_file_by_partial_match(ocp_path, "gpio-" + self.key.replace("_", "."))
+        self._write(pin_path + "/state", state)
+
 class PinCollection:
     def __init__(self):
-        self.pins = dict((definition["key"], self.build_pin(definition)) for definition in _pin_definitions)
+        self.pins = dict((definition["key"], self.build_pin(definition)) for definition in _pin_definitions if "gpio" in definition)
 
         for key, value in self.pins.items():
             setattr(self, key.lower(), value)

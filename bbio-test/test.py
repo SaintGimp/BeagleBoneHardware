@@ -15,7 +15,6 @@ def setup_switch(pin):
 	return switch
 
 def on_press(switch):
-	print(switch.pin.key)
 	leds_by_switch[switch].set_high()
 
 def on_release(switch):
@@ -24,7 +23,7 @@ def on_release(switch):
 red_led = setup_led(gpio.pins.p9_12)
 green_led = setup_led(gpio.pins.p9_14)
 yellow_led = setup_led(gpio.pins.p9_16)
-blue_led = setup_led(gpio.pins.p9_23)
+blue_led = setup_led(gpio.pins.p9_18)
 
 red_switch = setup_switch(gpio.pins.p9_11)
 green_switch = setup_switch(gpio.pins.p9_13)
