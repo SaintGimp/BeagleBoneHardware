@@ -152,13 +152,6 @@ class Pin:
         return path + "/" + next(item for item in os.listdir(path) if pattern in item)
     
     def _set_pin_mux(self, direction, pull):
-        # Might want to expand
-        # this in the future to support more options, or to support
-        # runtime config changes ala https://github.com/nomel/beaglebone.git
-
-        # NOTE: once we set an overlay there's no good way to get rid of
-        # it.  You'll have to reboot to go back to pulldown on the pin.
-
         overlay_name = "gimp-gpio-" + self.key
         self._load_device_tree_overlay(overlay_name)
 
@@ -166,6 +159,8 @@ class Pin:
         self._write_pin_state(pin_state)
 
     def _load_device_tree_overlay(self, overlay_name):
+        # NOTE: once we load an overlay there's currently no good way to get rid of it.
+        
         cape_manager = self._find_file_by_partial_match("/sys/devices", "bone_capemgr.")
         cape_slots_path = cape_manager + "/slots"
 
