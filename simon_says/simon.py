@@ -3,6 +3,7 @@ import gimpbbio.devices as devices
 import time
 import random
 import threading
+from seven_segment import display_digit
 
 sequence = []
 input_enabled = False
@@ -60,6 +61,7 @@ def setup_game():
 	input_enabled = False
 	next_expected_color = 0
 	sequence = [random.choice(colors)]
+	display_digit(0)
 
 def on_press(switch):
 	global input_enabled
@@ -81,6 +83,8 @@ def on_release(switch):
 
 		if next_expected_color == len(sequence):
 			input_enabled = False
+			if len(sequence) <= 9:
+				display_digit(len(sequence))
 			time.sleep(1)
 			sequence.append(random.choice(colors))
 			play_sequence()
