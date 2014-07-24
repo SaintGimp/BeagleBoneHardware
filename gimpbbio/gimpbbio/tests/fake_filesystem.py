@@ -82,4 +82,4 @@ def get(name):
     return _files[name]
 
 def get_by_descriptor(file_descriptor):
-    return next(filter(lambda file: file.file_descriptor == file_descriptor, _files.values()))
+    return next(file for file in _files.values() if file.file_descriptor == file_descriptor)

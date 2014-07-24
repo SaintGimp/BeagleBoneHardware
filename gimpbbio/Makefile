@@ -16,7 +16,7 @@ build:
 	python3 setup.py build --force
 
 dev:
-	python3 setup.py develop --force
+	python3 setup.py develop
 
 install: build
 	python3 setup.py install --force

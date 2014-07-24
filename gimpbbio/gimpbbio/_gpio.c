@@ -6,9 +6,7 @@ static PyObject *py_read_gpio(PyObject *self, PyObject *args)
 {
     int file_descriptor;
     char buffer;
-    int value;
     int bytes_read;
-    PyObject *py_value;
 
     if (!PyArg_ParseTuple(args, "i", &file_descriptor))
         return NULL;
@@ -21,12 +19,16 @@ static PyObject *py_read_gpio(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    // Convert to integer because it's going to be more performant than
+    // Convert to boolean because it's going to be more performant than
     // allocing and returning a Python string
-    value = buffer != '0' ? 1 : 0;
-    py_value = Py_BuildValue("i", value);
-
-    return py_value;
+    if (buffer != '0')
+    {
+        Py_RETURN_TRUE;
+    }
+    else
+    {
+        Py_RETURN_FALSE;
+    }
 }
 
 // python function value = write(file_descriptor, value)

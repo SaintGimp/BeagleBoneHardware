@@ -35,5 +35,5 @@ def write_a_bunch():
         low()
 
 from timeit import Timer
-t = Timer(lambda: write_a_bunch())
+t = Timer(lambda: read_a_bunch2())
 print(t.timeit(number=1))
