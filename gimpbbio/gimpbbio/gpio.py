@@ -59,7 +59,9 @@ def _poll_thread_function():
 
 _epoll = None 
 _watched_pins = {}
-_poll_thread = threading.Thread(target = _poll_thread_function, daemon = True)
+# daemon param only supported in Python 3.3+
+# _poll_thread = threading.Thread(target = _poll_thread_function, daemon = True)
+_poll_thread = threading.Thread(target = _poll_thread_function)
 
 class Pin:
     _gpio_read_function = _gpio.read
