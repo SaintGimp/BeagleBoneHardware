@@ -13,18 +13,19 @@ sudo apt-get -y purge libopencv-*
 sudo rm -rf /usr/share/doc
 
 # install additional packages
-sudo apt-get install bash-completion
+sudo apt-get -y install bash-completion
 echo "
 bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 " >> ~/.bashrc
+sudo apt-get -y install python3-dev
 
 # remove docs again because we added stuff
 sudo rm -rf /usr/share/doc
 
-# clean up apt-get database
-apt-get clean
-apt-get autoclean
+# clean up apt-get
+sudo apt-get -y autoremove
+sudo apt-get clean
 
 # set timezone
 # ntpdate -b -s -u pool.ntp.org
