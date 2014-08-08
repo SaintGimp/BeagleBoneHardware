@@ -1,7 +1,13 @@
 # coding: utf-8
 
 import gimpbbio.gpio as gpio
-import threading, time, signal
+import threading, time, datetime, signal
+import Queue as queue
+
+# http://stackoverflow.com/questions/9310350/twisted-non-blocking-method-how-to
+# http://twistedmatrix.com/documents/current/web/howto/client.html
+# http://stackoverflow.com/questions/2632520/what-is-the-fastest-way-to-send-100-000-http-requests-in-python
+
 
 class GeigerCounterDataCollector:
 	def __init__(self):
@@ -16,8 +22,9 @@ class GeigerCounterDataCollector:
 		self.next_collection_call = time.time()
 		# Well-known conversion factor from the tube manufacturer
 		self.conversion_factor = 0.0057
+		self.queue = queue.Queue()
 		self.quit_event = threading.Event()
-		
+
 	def start(self, input_pin):
 		self.input_pin = input_pin
 		self.input_pin.open_for_input()
@@ -27,13 +34,24 @@ class GeigerCounterDataCollector:
 		thread.daemon = True
 		thread.start()
 
+		self.process_data()
+
 	def stop(self):
 		self.input_pin.close()
 		self.quit_event.set()
 		time.sleep(0.1)
 
+
 	def receive_data(self, pin):
-		self.count_accumulator += 1
+		self.queue.put_nowait(datetime.datetime.now())
+
+	def process_data(self):
+		while not self.quit_event.isSet():
+			timestamp = self.queue.get()
+			if not self.quit_event.isSet():
+				self.count_accumulator += 1
+				#self.data_file.write(str(timestamp) + '\n')
+				# Send to remote server
 
 	def once_per_second(self):
 		while not self.quit_event.isSet():
@@ -64,19 +82,13 @@ class GeigerCounterDataCollector:
 			self.highest_cpm = self.counts_per_minute
 
 		self.count_index += 1
-		if self.count_index > 9:
+		if self.count_index > 59:
 			self.count_index = 0
 
 	def print_statistics(self):
-		cpm = self.counts_per_minute * 6
-		if cpm < 150:
-			level = "LOW"
-		elif cpm >= 150 and cpm < 300:
-			level = "MEDUIM"
-		else:
-			level = "HIGH"
-
-		print("Elapsed seconds: {0}, CPS: {1}, rolling CPM: {2}, {3}".format(self.elapsed_seconds, self.counts_per_second, cpm, level))
+		micro_sieverts_per_hour = self.counts_per_minute * self.conversion_factor
+		average_cpm = self.total_counts * 1.0 / self.elapsed_seconds * 60
+		print("CPS: {0}, rolling CPM: {1}, avg CPM: {2:.1f}, max CPM: {3}, μSv/hr: {4:.2f}".format(self.counts_per_second, self.counts_per_minute, average_cpm, self.highest_cpm, micro_sieverts_per_hour))
 
 def signal_handler(signal, frame):
     print('Exiting.')
@@ -86,5 +98,3 @@ signal.signal(signal.SIGINT, signal_handler)
 
 collector = GeigerCounterDataCollector()
 collector.start(gpio.pins.p8_8)
-
-collector.quit_event.wait()

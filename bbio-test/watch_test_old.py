@@ -1,10 +1,12 @@
 import Adafruit_BBIO.GPIO as GPIO
 import time
-import math
+import datetime
 
 count = 0
+data_file = open("/var/tmp/test_data.txt", "w+")
 
 def callback(pin):
+	data_file.write(str(datetime.datetime.now()) + '\n')
 	global count
 	count += 1
 
