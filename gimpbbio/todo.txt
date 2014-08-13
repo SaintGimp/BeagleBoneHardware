@@ -1,2 +1,2 @@
-Install should generate, compile, and install overlays
+Library install should automatically generate, compile, and install overlays
 generateGPIOOverlays.py should write overlay files to ./generated directory

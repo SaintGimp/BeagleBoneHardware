@@ -63,6 +63,32 @@ _watched_pins = {}
 # _poll_thread = threading.Thread(target = _poll_thread_function, daemon = True)
 _poll_thread = threading.Thread(target = _poll_thread_function)
 
+def _read(filename):
+    with open(filename, "r") as file:
+        return file.read()
+
+def _write(filename, text):
+    with open(filename, "w") as file:
+        file.write(text)
+
+def _find_file_by_partial_match(path, pattern):
+    return path + "/" + next(item for item in os.listdir(path) if pattern in item)
+
+def _load_device_tree_overlay(overlay_name):
+    # NOTE: once we load an overlay there's currently no good way to get rid of it.
+    
+    cape_manager = _find_file_by_partial_match("/sys/devices", "bone_capemgr.")
+    cape_slots_path = cape_manager + "/slots"
+
+    slots = _read(cape_slots_path)
+    if overlay_name not in slots:
+        _write(cape_slots_path, overlay_name)
+
+    while True:
+        slots = _read(cape_slots_path)
+        if overlay_name in slots:
+            break
+
 class Pin:
     _gpio_read_function = _gpio.read
     _gpio_write_function = _gpio.write
@@ -111,7 +137,7 @@ class Pin:
 
         self.edge_trigger = edge_trigger
         edge_filename = "/sys/class/gpio/gpio" + str(self.gpio) + "/edge"
-        self._write(edge_filename, edge_trigger)
+        _write(edge_filename, edge_trigger)
 
         _add_watch(self)
     
@@ -127,58 +153,32 @@ class Pin:
 
     def _export(self):
         try:
-            self._write("/sys/class/gpio/export", str(self.gpio))
+            _write("/sys/class/gpio/export", str(self.gpio))
         except OSError as e:
             # errno.EBUSY means the pin is already exported, which is fine
             if e.errno != errno.EBUSY:
                 raise
 
     def _unexport(self):
-        self._write("/sys/class/gpio/unexport", str(self.gpio))
+        _write("/sys/class/gpio/unexport", str(self.gpio))
 
     def _set_direction(self, direction):
-        self._write("/sys/class/gpio/gpio" + str(self.gpio) + "/direction", direction)
+        _write("/sys/class/gpio/gpio" + str(self.gpio) + "/direction", direction)
 
     def _set_active_low(self, active_low):
-        self._write("/sys/class/gpio/gpio" + str(self.gpio) + "/active_low", active_low)
-
-    def _read(self, filename):
-        with open(filename, "r") as file:
-            return file.read()
-
-    def _write(self, filename, text):
-        with open(filename, "w") as file:
-            file.write(text)
-
-    def _find_file_by_partial_match(self, path, pattern):
-        return path + "/" + next(item for item in os.listdir(path) if pattern in item)
+        _write("/sys/class/gpio/gpio" + str(self.gpio) + "/active_low", active_low)
     
     def _set_pin_mux(self, direction, pull):
         overlay_name = "gimp-gpio-" + self.key
-        self._load_device_tree_overlay(overlay_name)
+        _load_device_tree_overlay(overlay_name)
 
         pin_state = direction + "_" + pull
         self._write_pin_state(pin_state)
 
-    def _load_device_tree_overlay(self, overlay_name):
-        # NOTE: once we load an overlay there's currently no good way to get rid of it.
-        
-        cape_manager = self._find_file_by_partial_match("/sys/devices", "bone_capemgr.")
-        cape_slots_path = cape_manager + "/slots"
-
-        slots = self._read(cape_slots_path)
-        if overlay_name not in slots:
-            self._write(cape_slots_path, overlay_name)
-
-        while True:
-            slots = self._read(cape_slots_path)
-            if overlay_name in slots:
-                break
-
     def _write_pin_state(self, state):
-        ocp_path = self._find_file_by_partial_match("/sys/devices", "ocp.")
-        pin_path = self._find_file_by_partial_match(ocp_path, "gpio-" + self.key.replace("_", "."))
-        self._write(pin_path + "/state", state)
+        ocp_path = _find_file_by_partial_match("/sys/devices", "ocp.")
+        pin_path = _find_file_by_partial_match(ocp_path, "gpio-" + self.key.replace("_", "."))
+        _write(pin_path + "/state", state)
 
 class PinCollection:
     def __init__(self):
@@ -188,7 +188,7 @@ class PinCollection:
             setattr(self, key.lower(), value)
 
     def __getitem__(self, key):
-        return self.pins[key]
+        return self.pins[key.lower()]
 
     def build_pin(self, definition):
         pin = Pin()
@@ -196,4 +196,27 @@ class PinCollection:
             setattr(pin, key, value)
         return pin
 
+class Uart:
+    def __init__(self, key):
+        self.key = key
+
+    def open(self):
+        _load_device_tree_overlay("gimp-" + self.key)
+
+class UartCollection:
+    def __init__(self):
+        self.uarts = {
+            'uart1': Uart('uart1'),
+            'uart2': Uart('uart2'),
+            'uart4': Uart('uart4'),
+            'uart5': Uart('uart5')
+        }
+
+        for key, value in self.uarts.items():
+            setattr(self, key.lower(), value)
+
+    def __getitem__(self, key):
+        return self.uarts[key.lower()]
+
 pins = PinCollection()
+uarts = UartCollection()
