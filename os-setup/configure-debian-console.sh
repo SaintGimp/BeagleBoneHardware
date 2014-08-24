@@ -1,23 +1,35 @@
 #!/bin/bash
 
-# remove unneeded stuff
-#sudo apt-get -y purge vim 
-#sudo apt-get -y purge vim-runtime
-#sudo apt-get -y purge libopencv-*
-#sudo rm -rf /usr/share/doc
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games"
+sudo sed -i "s/\(\/usr\/local\/bin:\/usr\/bin:\/bin:\/usr\/local\/games:\/usr\/games\)/\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin:\/usr\/local\/games:\/usr\/games/" /etc/profile
+
+sudo apt-get update
+
+# set locale
+sudo apt-get install locales
+sudo sed -i 's/\(# \)\(en_US\.UTF-8.*\)/\2/' /etc/locale.gen
+sudo /usr/sbin/locale-gen
+
+# wireless adapters
+sudo apt-get -y install firmware-ralink
+sudo apt-get -y install firmware-atheros
+sudo apt-get -y install wicd-curses
 
 # install additional packages
-sudo apt-get update
+sudo apt-get -y install git
+sudo apt-get -y install curl
+sudo apt-get -y ntpdate
+sudo apt-get -y install device-tree-compiler
 sudo apt-get -y install bash-completion
 echo "
 bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 " >> ~/.bashrc
+#sudo apt-get -y install python3-dev
 
-# Python
+ Python
 sudo apt-get -y install python2.7
 sudo apt-get -y install python3-dev
-sudo apt-get -y remove python-pip
 curl https://bootstrap.pypa.io/get-pip.py | sudo python3.2
 sudo pip2 install virtualenvwrapper
 mkdir ~/.virtualenvs
@@ -25,13 +37,6 @@ echo "
 export WORKON_HOME=$HOME/.virtualenvs
 source /usr/local/bin/virtualenvwrapper_lazy.sh
 " >> ~/.bashrc
-
-# remove docs again because we added stuff
-#sudo rm -rf /usr/share/doc
-
-# clean up apt-get
-#sudo apt-get -y autoremove
-#sudo apt-get clean
 
 # set timezone
 # ntpdate -b -s -u pool.ntp.org
@@ -66,5 +71,7 @@ $ '
 " >> ~/.bashrc
 
 echo "
-To configure WiFi, use 'wicd-curses'.
+Done. Rebooting...
 "
+
+sudo reboot
