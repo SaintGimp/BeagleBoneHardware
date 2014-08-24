@@ -75,8 +75,11 @@ while True:
 	bytes = ser.read(36)
 
 	if len(bytes) == 36:
-		line1 = bytes[2:18].decode('ascii')
-		line2 = bytes[20:36].decode('ascii')
-		print(line1 + "  " + line2)
+		try:
+			line1 = bytes[2:18].decode('ascii')
+			line2 = bytes[20:36].decode('ascii')
+			print(line1 + "  " + line2)
 
-		cpm = int(re.search(r'CPM:\s*(\d+)', line1).group(1))
+			cpm = int(re.search(r'CPM:\s*(\d+)', line1).group(1))
+		except (UnicodeDecodeError):
+			print("Unicode decoding error!")
