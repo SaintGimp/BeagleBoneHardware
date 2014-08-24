@@ -19,12 +19,13 @@ sudo apt-get -y install python2.7
 sudo apt-get -y install python3-dev
 sudo apt-get -y remove python-pip
 curl https://bootstrap.pypa.io/get-pip.py | sudo python3.2
-sudo pip2 install virtualenvwrapper
-mkdir ~/.virtualenvs
-echo "
-export WORKON_HOME=$HOME/.virtualenvs
-source /usr/local/bin/virtualenvwrapper_lazy.sh
-" >> ~/.bashrc
+# TODO: virtualenvwrapper doesn't seem to work well with sudo, and we have to sudo to run GPIO code on the BBB
+#sudo pip2 install virtualenvwrapper
+#mkdir ~/.virtualenvs
+#echo "
+#export WORKON_HOME=$HOME/.virtualenvs
+#source /usr/local/bin/virtualenvwrapper_lazy.sh
+#" >> ~/.bashrc
 
 # remove docs again because we added stuff
 #sudo rm -rf /usr/share/doc
