@@ -9,6 +9,11 @@ import sys
 import datetime
 import time
 import socket
+import Adafruit_BMP.BMP085 as BMP085
+
+altitude_in_meters = 112
+phant_url = 'data.sparkfun.com'
+phant_public_key = 'WGG8ONW8bMf7x2ad0WOY'
 
 queue = queue.Queue()
 
@@ -19,6 +24,8 @@ uart.open()
 # the middle of a serial message or if a byte is dropped for any
 # reason, we'll throw away the partial message and try again
 ser = serial.Serial(port = "/dev/ttyO1", baudrate=9600, timeout=0.25) 
+
+pressure_sensor = BMP085.BMP085(mode=BMP085.BMP085_ULTRAHIGHRES)
 
 headers = {
 	"Phant-Private-Key": str(sys.argv[1]),
@@ -32,8 +39,8 @@ def sendData():
 		success = False
 		while not success:
 			try:
-				phantServer = http.client.HTTPConnection("phant.saintgimp.org")
-				phantServer.request(method="POST", url="/input/3K2oGxKqelCo0ry50Ln4fpr1q7m", body=body, headers=headers)
+				phantServer = http.client.HTTPConnection(phant_url)
+				phantServer.request(method="POST", url="/input/" + phant_public_key, body=body, headers=headers)
 				response = phantServer.getresponse()
 				response.read()
 
@@ -58,8 +65,24 @@ def oncePerMinute():
 		sleep_time = next_interval_time - time.time()
 		time.sleep(sleep_time)
 
-		body = urllib.parse.urlencode({'CPM': cpm, 'Device_Time': str(datetime.datetime.now())})
+		device_time = str(datetime.datetime.now())
+		current_cpm = cpm
+
+		pressure = getPressure()
+		sea_level_pressure = pressure / pow(1.0 - altitude_in_meters / 44330.0, 5.255)
+
+		body = urllib.parse.urlencode({'cpm': current_cpm, 'device_time': device_time, 'pressure': pressure, 'sea_level_pressure': sea_level_pressure})
 		queue.put_nowait(body)
+
+def getPressure():
+	# Without a good static pressure port, the best we can do to lower
+	# noise is aggregate a bunch of readings
+	# TODO: better filtering algorithm?
+	accumulator = 0.0
+	for x in range(0, 50):
+		accumulator += pressure_sensor.read_pressure()
+
+	return accumulator / 50
 
 sendThread = threading.Thread(target = sendData)
 sendThread.daemon = True
@@ -78,7 +101,7 @@ while True:
 		try:
 			line1 = bytes[2:18].decode('ascii')
 			line2 = bytes[20:36].decode('ascii')
-			print(line1 + "  " + line2)
+			#print(line1 + "  " + line2)
 
 			cpm = int(re.search(r'CPM:\s*(\d+)', line1).group(1))
 		except (UnicodeDecodeError):
