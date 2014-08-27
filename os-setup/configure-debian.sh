@@ -8,6 +8,8 @@
 
 # install additional packages
 sudo apt-get update
+sudo apt-get -y install python-smbus
+sudo apt-get -y install i2c-tools
 sudo apt-get -y install bash-completion
 echo "
 bind 'set completion-ignore-case on'

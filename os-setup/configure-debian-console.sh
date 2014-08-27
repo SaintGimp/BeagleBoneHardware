@@ -20,6 +20,9 @@ sudo apt-get -y install git
 sudo apt-get -y install curl
 sudo apt-get -y ntpdate
 sudo apt-get -y install device-tree-compiler
+sudo apt-get -y install python-smbus
+sudo apt-get -y install i2c-tools
+sudo apt-get -y install tmux
 sudo apt-get -y install bash-completion
 echo "
 bind 'set completion-ignore-case on'
@@ -27,10 +30,11 @@ bind 'set show-all-if-ambiguous on'
 " >> ~/.bashrc
 #sudo apt-get -y install python3-dev
 
- Python
+# Python
 sudo apt-get -y install python2.7
 sudo apt-get -y install python3-dev
 curl https://bootstrap.pypa.io/get-pip.py | sudo python3.2
+sudo pip install pyserial
 # TODO: virtualenvwrapper doesn't seem to work well with sudo, and we have to sudo to run GPIO code on the BBB
 #sudo pip2 install virtualenvwrapper
 #mkdir ~/.virtualenvs
