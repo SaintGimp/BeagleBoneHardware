@@ -14,7 +14,9 @@ import Adafruit_BMP.BMP085 as BMP085
 altitude_in_meters = 112
 phant_url = 'data.sparkfun.com'
 phant_public_key = 'WGG8ONW8bMf7x2ad0WOY'
+pressure_samples = []
 
+pressure_sampling_lock = threading.Lock()
 queue = queue.Queue()
 
 uart = gpio.uarts.uart1
@@ -71,18 +73,29 @@ def oncePerMinute():
 		pressure = getPressure()
 		sea_level_pressure = pressure / pow(1.0 - altitude_in_meters / 44330.0, 5.255)
 
-		body = urllib.parse.urlencode({'cpm': current_cpm, 'device_time': device_time, 'pressure': pressure, 'sea_level_pressure': sea_level_pressure})
+		body = urllib.parse.urlencode({'cpm': current_cpm, 'device_time': device_time, 'pressure': '{0:0.2f}'.format(pressure), 'sea_level_pressure': '{0:0.2f}'.format(sea_level_pressure)})
 		queue.put_nowait(body)
 
-def getPressure():
-	# Without a good static pressure port, the best we can do to lower
-	# noise is aggregate a bunch of readings
-	# TODO: better filtering algorithm?
-	accumulator = 0.0
-	for x in range(0, 50):
-		accumulator += pressure_sensor.read_pressure()
+def samplePressure():
+	global pressure_samples
+	while True:
+		with pressure_sampling_lock:
+			pressure_samples.append(pressure_sensor.read_pressure())
 
-	return accumulator / 50
+def getPressure():
+	global pressure_samples
+	with pressure_sampling_lock:
+		median_pressure = median(pressure_samples)
+		pressure_samples = []
+	return median_pressure
+
+def median(number_list):
+	sorted_list = sorted(number_list)
+	length = len(sorted_list)
+	if not length % 2:
+		return (sorted_list[length // 2] + sorted_list[length // 2 - 1]) / 2.0
+	else:
+		return sorted_list[length // 2]
 
 sendThread = threading.Thread(target = sendData)
 sendThread.daemon = True
@@ -93,6 +106,10 @@ next_interval_time = time.time()
 sampleThread = threading.Thread(target = oncePerMinute)
 sampleThread.daemon = True
 sampleThread.start()
+
+pressureThread = threading.Thread(target = samplePressure)
+pressureThread.daemon = True
+pressureThread.start()
 
 while True:
 	bytes = ser.read(36)
