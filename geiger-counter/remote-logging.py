@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import gimpbbio.gpio as gpio
 import serial
 import re
