@@ -74,6 +74,7 @@ sudo apt-get -y ntpdate
 
 # Service to set system time from RTC on boot
 # https://learn.adafruit.com/adding-a-real-time-clock-to-beaglebone-black/set-rtc-time
+sudo mkdir /usr/share/rtc_ds1307
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-init.service /lib/systemd/system/rtc-ds1307-init.service
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-init.sh /usr/share/rtc_ds1307/rtc-init.sh
 sudo systemctl start rtc-ds1307-init.service
@@ -87,6 +88,7 @@ sudo systemctl start rtc-ds1307-update.timer
 sudo systemctl enable rtc-ds1307-update.timer
 
 # Service to update DuckDNS every hour
+sudo mkdir /usr/share/duckdns
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.service /lib/systemd/system/duckdns.service
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.timer /lib/systemd/system/duckdns.timer
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.sh /usr/share/duckdns/duckdns.sh
