@@ -85,7 +85,7 @@ sudo systemctl enable rtc-ds1307-init.service
 # service to update system and hardware clocks from NTP server every hour
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-update.service /lib/systemd/system/rtc-ds1307-update.service
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-update.timer /lib/systemd/system/rtc-ds1307-update.timer
-sudo cp ~/Projects/BeagleBoneHardware/os-setup/clock_init.sh /usr/share/rtc_ds1307/rtc-update.sh
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-update.sh /usr/share/rtc_ds1307/rtc-update.sh
 sudo systemctl start rtc-ds1307-update.timer
 sudo systemctl enable rtc-ds1307-update.timer
 
