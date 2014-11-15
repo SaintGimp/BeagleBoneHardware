@@ -1,0 +1,7 @@
+[Unit]
+Description=Update DuckDNS registration
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/share/duckdns
+ExecStart=/bin/bash duckdns.sh

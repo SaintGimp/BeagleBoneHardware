@@ -65,35 +65,35 @@ $ '
 
 git clone https://github.com/SaintGimp/BeagleBoneHardware.git ~/Projects/BeagleBoneHardware
 
-# *** Date/time/RTC stuff
-
 # Use UTC for data collection
 sudo sh -c 'echo "UTC" > /etc/timezone'
 sudo dpkg-reconfigure -f noninteractive tzdata
 
-# time services
-sudo apt-get -y ntp
+# Time tools
 sudo apt-get -y ntpdate
 
-# service to set system time from RTC on boot
+# Service to set system time from RTC on boot
 # https://learn.adafruit.com/adding-a-real-time-clock-to-beaglebone-black/set-rtc-time
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-init.service /lib/systemd/system/rtc-ds1307-init.service
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-init.sh /usr/share/rtc_ds1307/rtc-init.sh
 sudo systemctl start rtc-ds1307-init.service
 sudo systemctl enable rtc-ds1307-init.service
 
-# service to update system and hardware clocks from NTP server every hour
+# Service to update system and hardware clocks from NTP server every hour
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-update.service /lib/systemd/system/rtc-ds1307-update.service
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-update.timer /lib/systemd/system/rtc-ds1307-update.timer
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-update.sh /usr/share/rtc_ds1307/rtc-update.sh
 sudo systemctl start rtc-ds1307-update.timer
 sudo systemctl enable rtc-ds1307-update.timer
 
-# TODO: configure at-boot python scripts as systemd, to run after rtc script
+# Service to update DuckDNS every hour
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.service /lib/systemd/system/duckdns.service
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.timer /lib/systemd/system/duckdns.timer
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.sh /usr/share/duckdns/duckdns.sh
+sudo systemctl start duckdns.timer
+sudo systemctl enable duckdns.timer
 
-# TODO: sudo crontab -e
-#			7 0 * * * ntpdate -b -s -u pool.ntp.org && hwclock -w -f /dev/rtc1
-# or maybe systemd package for that?  http://stackoverflow.com/questions/11219832/what-is-the-best-way-to-run-ntpdate-at-reboot-only-after-network-is-ready
+# TODO: configure at-boot python scripts as systemd, to run after rtc script
 
 echo "
 Done. Rebooting...

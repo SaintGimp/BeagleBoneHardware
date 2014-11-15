@@ -6,6 +6,11 @@
 #sudo apt-get -y purge libopencv-*
 #sudo rm -rf /usr/share/doc
 
+# wireless adapters
+sudo apt-get -y install firmware-ralink
+sudo apt-get -y install firmware-atheros
+sudo apt-get -y install wicd-curses
+
 # install additional packages
 sudo apt-get update
 sudo apt-get -y install python-smbus

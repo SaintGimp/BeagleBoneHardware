@@ -1,0 +1,1 @@
+curl -k "https://www.duckdns.org/update?domains=saintgimp&token=<token>&ip="
