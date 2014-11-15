@@ -1,0 +1,7 @@
+[Unit]
+Description=Update system clock and hardware clock from NTP server
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/share/rtc_ds1307
+ExecStart=/bin/bash rtc-update.sh

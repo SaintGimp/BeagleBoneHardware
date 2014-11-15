@@ -10,15 +10,9 @@ sudo apt-get install locales
 sudo sed -i 's/\(# \)\(en_US\.UTF-8.*\)/\2/' /etc/locale.gen
 sudo /usr/sbin/locale-gen
 
-# wireless adapters
-sudo apt-get -y install firmware-ralink
-sudo apt-get -y install firmware-atheros
-sudo apt-get -y install wicd-curses
-
 # install additional packages
 sudo apt-get -y install git
 sudo apt-get -y install curl
-sudo apt-get -y ntpdate
 sudo apt-get -y install device-tree-compiler
 sudo apt-get -y install python-smbus
 sudo apt-get -y install i2c-tools
@@ -28,7 +22,6 @@ echo "
 bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 " >> ~/.bashrc
-#sudo apt-get -y install python3-dev
 
 # Python
 sudo apt-get -y install python2.7
@@ -42,11 +35,6 @@ sudo pip install pyserial
 #export WORKON_HOME=$HOME/.virtualenvs
 #source /usr/local/bin/virtualenvwrapper_lazy.sh
 #" >> ~/.bashrc
-
-# set timezone
-# ntpdate -b -s -u pool.ntp.org
-sudo sh -c 'echo "US/Pacific" > /etc/timezone'
-sudo dpkg-reconfigure -f noninteractive tzdata
 
 # home folder
 mkdir -p ~/bin
@@ -74,6 +62,38 @@ export GIT_PS1_SHOWUPSTREAM='auto'
 export PS1='\[\033]0;\w\007\033[32m\]\u@\h \[\033[33m\w\$(__git_ps1)\033[0m\]
 $ '
 " >> ~/.bashrc
+
+git clone https://github.com/SaintGimp/BeagleBoneHardware.git ~/Projects/BeagleBoneHardware
+
+# *** Date/time/RTC stuff
+
+# Use UTC for data collection
+sudo sh -c 'echo "UTC" > /etc/timezone'
+sudo dpkg-reconfigure -f noninteractive tzdata
+
+# time services
+sudo apt-get -y ntp
+sudo apt-get -y ntpdate
+
+# service to set system time from RTC on boot
+# https://learn.adafruit.com/adding-a-real-time-clock-to-beaglebone-black/set-rtc-time
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-init.service /lib/systemd/system/rtc-ds1307-init.service
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-init.sh /usr/share/rtc_ds1307/rtc-init.sh
+sudo systemctl start rtc-ds1307-init.service
+sudo systemctl enable rtc-ds1307-init.service
+
+# service to update system and hardware clocks from NTP server every hour
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-update.service /lib/systemd/system/rtc-ds1307-update.service
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/rtc-ds1307-update.timer /lib/systemd/system/rtc-ds1307-update.timer
+sudo cp ~/Projects/BeagleBoneHardware/os-setup/clock_init.sh /usr/share/rtc_ds1307/rtc-update.sh
+sudo systemctl start rtc-ds1307-update.timer
+sudo systemctl enable rtc-ds1307-update.timer
+
+# TODO: configure at-boot python scripts as systemd, to run after rtc script
+
+# TODO: sudo crontab -e
+#			7 0 * * * ntpdate -b -s -u pool.ntp.org && hwclock -w -f /dev/rtc1
+# or maybe systemd package for that?  http://stackoverflow.com/questions/11219832/what-is-the-best-way-to-run-ntpdate-at-reboot-only-after-network-is-ready
 
 echo "
 Done. Rebooting...
