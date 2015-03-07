@@ -94,6 +94,7 @@ sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.timer /lib/systemd/system
 sudo cp ~/Projects/BeagleBoneHardware/os-setup/duckdns.sh /usr/share/duckdns/duckdns.sh
 sudo systemctl start duckdns.timer
 sudo systemctl enable duckdns.timer
+# TODO: need to put DuckDNS token into duckdns.sh (don't check it in!)
 
 # TODO: configure at-boot python scripts as systemd, to run after rtc script
 
