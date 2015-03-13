@@ -78,7 +78,7 @@ def sendData():
 		success = False
 		while not success:
 			try:
-				phantServer = http.client.HTTPConnection(phant_url)
+				phantServer = http.client.HTTPConnection(phant_url, timeout=10)
 				phantServer.request(method="POST", url="/input/" + phant_public_key, body=body, headers=headers)
 				response = phantServer.getresponse()
 				response.read()
@@ -142,6 +142,8 @@ def median(number_list):
 		return (sorted_list[length // 2] + sorted_list[length // 2 - 1]) / 2.0
 	else:
 		return sorted_list[length // 2]
+
+socket.setdefaulttimeout(10)
 
 sendThread = threading.Thread(target = sendData)
 sendThread.daemon = True
