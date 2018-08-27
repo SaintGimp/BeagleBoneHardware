@@ -26,6 +26,7 @@ def plot_correlation():
     cpm_axis = pressure_axis.twinx()
     hours = df.cpm.resample('4H')
     hours = hours.ix[1:-1]
+    cpm_axis.set_ylim((12, 20))
     cpm_axis.plot(hours, color='red')
     plt.show()
 
@@ -73,7 +74,7 @@ def plot_josiah3():
 
     plt.show()
 
-plot_josiah3()
+plot_correlation()
 
 # show pressure resampled to 1 hour
 # hours = df.pressure.resample('24H')
@@ -84,10 +85,10 @@ plot_josiah3()
 # plt.show()
 
 # show CPM resampled to 1 hour
-# hours = df.cpm.resample('24H')
-# hours = hours.ix[1:-1]
-# hours.plot(kind='line')
-# plt.show()
+#hours = df.cpm.resample('1H')
+#hours = hours.ix[1:-1]
+#hours.plot(kind='line')
+#plt.show()
 
 # show CPM average for each hour of the day
 #df = df.ix['2014/10/23':'2014/10/30']
